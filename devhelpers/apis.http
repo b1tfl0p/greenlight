@@ -1,0 +1,33 @@
+### HEALTHCHECK
+GET /v1/healthcheck
+
+### CREATE_MOVIE
+POST /v1/movies
+
+{
+    "title": "Moana",
+    "year": 2016,
+    "runtime": 107,
+    "genres": [ "animation", "adventure" ]
+}
+
+### CREATE_MOVIE_OMITTED_VALUES
+// Omit "year" property
+POST /v1/movies
+
+{
+    "title": "Moana",
+    "runtime": 107,
+    "genres": [ "animation", "adventure" ]
+}
+
+### CREATE_MOVIE_ZERO_VALUES
+// Provide 0 value for "year"
+POST /v1/movies
+
+{
+    "title": "Moana",
+    "year": 0,
+    "runtime": 107,
+    "genres": [ "animation", "adventure" ]
+}
