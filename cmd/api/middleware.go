@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"expvar"
 	"fmt"
 	"net"
 	"net/http"
@@ -184,26 +185,52 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 
 		origin := r.Header.Get("Origin")
 
-		if origin != "" && len(app.config.cors.trustedOrigins) != 0 {
-			if slices.Contains(app.config.cors.trustedOrigins, origin) {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
+		if origin != "" &&
+			len(app.config.cors.trustedOrigins) != 0 &&
+			slices.Contains(app.config.cors.trustedOrigins, origin) {
 
-				// Check if the request has the HTTP method OPTIONS and contains
-				// the "Access-Control-Request-Method" header. If it does, then
-				// we treat it as a preflight request.
-				if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
-					// Set the necessary preflight response headers.
-					w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, PUT, PATCH, DELETE")
-					w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 
-					// Write the headers along with a 200 OK status and return
-					// from the middleware with no further action.
-					w.WriteHeader(http.StatusOK)
-					return
-				}
+			// Check if the request has the HTTP method OPTIONS and contains
+			// the "Access-Control-Request-Method" header. If it does, then
+			// we treat it as a preflight request.
+			if r.Method == http.MethodOptions &&
+				r.Header.Get("Access-Control-Request-Method") != "" {
+
+				// Set the necessary preflight response headers.
+				w.Header().Set(
+					"Access-Control-Allow-Methods",
+					"OPTIONS, PUT, PATCH, DELETE")
+				w.Header().Set(
+					"Access-Control-Allow-Headers",
+					"Authorization, Content-Type")
+
+				// Write the headers along with a 200 OK status and return
+				// from the middleware with no further action.
+				w.WriteHeader(http.StatusOK)
+				return
 			}
 		}
 
 		next.ServeHTTP(w, r)
+	})
+}
+
+func (app *application) metrics(next http.Handler) http.Handler {
+	totalRequestsReceived := expvar.NewInt("total_requests_received")
+	totalResponsesSent := expvar.NewInt("total_responses_sent")
+	totalProcessingTime := expvar.NewInt("total_processing_time_microseconds")
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		totalRequestsReceived.Add(1)
+
+		next.ServeHTTP(w, r)
+
+		totalResponsesSent.Add(1)
+
+		duration := time.Since(start).Microseconds()
+		totalProcessingTime.Add(duration)
 	})
 }
